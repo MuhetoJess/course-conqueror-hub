@@ -1,162 +1,209 @@
-import React, { useState } from 'react';
-import { GraduationCap, BookOpen, Trophy, Target, TrendingUp, Calendar } from 'lucide-react';
-import { studentStats, courses, achievements } from '@/data/academicData';
+import React, { useState, useMemo } from 'react';
+import { GraduationCap, BookOpen, Trophy, Target, TrendingUp, Calendar, Award } from 'lucide-react';
+import { studentStats, courses as initialCourses, achievements, Course } from '@/data/academicData';
 import ProgressRing from '@/components/ProgressRing';
 import StatsCard from '@/components/StatsCard';
 import AchievementBadge from '@/components/AchievementBadge';
-import CourseCard from '@/components/CourseCard';
-import LevelProgress from '@/components/LevelProgress';
+import CourseList from '@/components/CourseList';
 import GPAChart from '@/components/GPAChart';
-import YearProgress from '@/components/YearProgress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 
 const Index: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  const [courses, setCourses] = useState<Course[]>(initialCourses);
 
-  const creditProgress = (studentStats.earnedCredits / studentStats.totalCredits) * 100;
-  const passedCourses = courses.filter(c => c.status === 'passed').length;
-  const ongoingCourses = courses.filter(c => c.status === 'ongoing').length;
-  const unlockedAchievements = achievements.filter(a => a.unlocked).length;
+  const handleStatusChange = (code: string, newStatus: 'passed' | 'ongoing' | 'pending') => {
+    setCourses(prev => prev.map(course => 
+      course.code === code ? { ...course, status: newStatus } : course
+    ));
+  };
+
+  const stats = useMemo(() => {
+    const earnedCredits = courses
+      .filter(c => c.status === 'passed')
+      .reduce((sum, c) => sum + c.credits, 0) + studentStats.transferCredits;
+    const ongoingCredits = courses
+      .filter(c => c.status === 'ongoing')
+      .reduce((sum, c) => sum + c.credits, 0);
+    const remainingCredits = studentStats.totalCredits - earnedCredits;
+    const passedCourses = courses.filter(c => c.status === 'passed').length;
+    const ongoingCourses = courses.filter(c => c.status === 'ongoing').length;
+    const pendingCourses = courses.filter(c => c.status === 'pending').length;
+
+    return {
+      earnedCredits,
+      ongoingCredits,
+      remainingCredits,
+      passedCourses,
+      ongoingCourses,
+      pendingCourses,
+      progressPercent: (earnedCredits / studentStats.totalCredits) * 100
+    };
+  }, [courses]);
 
   const filteredCourses = selectedYear === 'all' 
     ? courses 
     : courses.filter(c => c.year === selectedYear);
 
+  const unlockedAchievements = achievements.filter(a => a.unlocked).length;
+
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="mb-8 opacity-0 animate-fade-in">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-4xl font-display gradient-text glow-text mb-2">
-              Academic Quest
-            </h1>
-            <p className="text-muted-foreground">
-              Welcome back, <span className="text-foreground font-medium">{studentStats.studentName}</span>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {studentStats.major} • {studentStats.faculty} • Reg: {studentStats.regNumber}
-            </p>
-          </div>
+      <header className="bg-card border-b border-border px-6 py-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Current Semester</p>
-              <p className="font-display text-primary">Year {studentStats.currentYear} • Sem {studentStats.currentSemester}</p>
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <GraduationCap className="w-6 h-6 text-primary" />
             </div>
-            <Calendar className="w-8 h-8 text-primary" />
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">
+                Academic Dashboard
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {studentStats.studentName} • {studentStats.regNumber}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-6 text-sm">
+            <div>
+              <span className="text-muted-foreground">Program:</span>
+              <span className="ml-2 font-medium text-foreground">{studentStats.major}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Year:</span>
+              <span className="ml-2 font-medium text-foreground">{studentStats.currentYear}</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatsCard
-              title="Overall GPA"
-              value={studentStats.overallGPA.toFixed(2)}
-              subtitle="Out of 20"
-              icon={TrendingUp}
-              delay={100}
-            />
-            <StatsCard
-              title="Major GPA"
-              value={studentStats.majorGPA.toFixed(2)}
-              subtitle="Core courses"
-              icon={Target}
-              delay={200}
-            />
-            <StatsCard
-              title="Courses Passed"
-              value={passedCourses}
-              subtitle={`${ongoingCourses} in progress`}
-              icon={BookOpen}
-              delay={300}
-            />
-            <StatsCard
-              title="Achievements"
-              value={`${unlockedAchievements}/${achievements.length}`}
-              subtitle="Unlocked"
-              icon={Trophy}
-              delay={400}
-            />
+      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <StatsCard
+            title="Overall GPA"
+            value={studentStats.overallGPA.toFixed(2)}
+            subtitle="Out of 20"
+            icon={TrendingUp}
+          />
+          <StatsCard
+            title="Major GPA"
+            value={studentStats.majorGPA.toFixed(2)}
+            subtitle="Core courses"
+            icon={Target}
+          />
+          <StatsCard
+            title="Credits Earned"
+            value={stats.earnedCredits}
+            subtitle={`of ${studentStats.totalCredits} total`}
+            icon={Award}
+          />
+          <StatsCard
+            title="Credits Remaining"
+            value={stats.remainingCredits}
+            subtitle="to graduate"
+            icon={Calendar}
+          />
+          <StatsCard
+            title="Courses Done"
+            value={stats.passedCourses}
+            subtitle={`${stats.ongoingCourses} in progress`}
+            icon={BookOpen}
+          />
+          <StatsCard
+            title="Achievements"
+            value={`${unlockedAchievements}/${achievements.length}`}
+            subtitle="Unlocked"
+            icon={Trophy}
+          />
+        </div>
+
+        {/* Progress Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Degree Progress */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-sm font-medium text-muted-foreground mb-4">Degree Progress</h3>
+            <div className="flex items-center gap-6">
+              <ProgressRing
+                progress={stats.progressPercent}
+                size={120}
+                strokeWidth={10}
+                label={`${Math.round(stats.progressPercent)}%`}
+                sublabel="Complete"
+              />
+              <div className="space-y-3 flex-1">
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Completed</span>
+                    <span className="font-medium text-success">{stats.earnedCredits} cr</span>
+                  </div>
+                  <Progress value={(stats.earnedCredits / studentStats.totalCredits) * 100} className="h-2" />
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">In Progress</span>
+                    <span className="font-medium text-warning">{stats.ongoingCredits} cr</span>
+                  </div>
+                  <Progress value={(stats.ongoingCredits / studentStats.totalCredits) * 100} className="h-2 [&>div]:bg-warning" />
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">Remaining</span>
+                    <span className="font-medium text-muted-foreground">{stats.remainingCredits} cr</span>
+                  </div>
+                  <Progress value={(stats.remainingCredits / studentStats.totalCredits) * 100} className="h-2 [&>div]:bg-muted-foreground" />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* GPA Chart */}
+          <div className="lg:col-span-2">
             <GPAChart />
-            <YearProgress />
-          </div>
-
-          {/* Courses Section */}
-          <div className="glass-card p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <h2 className="font-display text-xl glow-text">Course Catalog</h2>
-              <Tabs value={String(selectedYear)} onValueChange={(v) => setSelectedYear(v === 'all' ? 'all' : Number(v))}>
-                <TabsList className="bg-secondary/50">
-                  <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-                  <TabsTrigger value="1" className="text-xs">Y1</TabsTrigger>
-                  <TabsTrigger value="2" className="text-xs">Y2</TabsTrigger>
-                  <TabsTrigger value="3" className="text-xs">Y3</TabsTrigger>
-                  <TabsTrigger value="4" className="text-xs">Y4</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto scrollbar-thin pr-2">
-              {filteredCourses.map((course, index) => (
-                <CourseCard key={course.code} course={course} delay={index * 50} />
-              ))}
-            </div>
           </div>
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Level Progress */}
-          <LevelProgress earnedCredits={studentStats.earnedCredits} />
-
-          {/* Credit Progress Ring */}
-          <div className="glass-card p-6 flex flex-col items-center">
-            <h3 className="font-display text-lg mb-4 glow-text">Degree Progress</h3>
-            <ProgressRing
-              progress={creditProgress}
-              size={160}
-              strokeWidth={12}
-              label={`${Math.round(creditProgress)}%`}
-              sublabel="Complete"
-            />
-            <div className="mt-4 text-center">
-              <p className="text-2xl font-display gradient-text">
-                {studentStats.earnedCredits}/{studentStats.totalCredits}
+        {/* Courses Section */}
+        <div className="bg-card border border-border rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-border">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Course Catalog</h2>
+              <p className="text-sm text-muted-foreground">
+                Toggle status to track your progress • {filteredCourses.length} courses
               </p>
-              <p className="text-sm text-muted-foreground">Credits Earned</p>
-              {studentStats.transferCredits > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  +{studentStats.transferCredits} transfer credits
-                </p>
-              )}
             </div>
+            <Tabs value={String(selectedYear)} onValueChange={(v) => setSelectedYear(v === 'all' ? 'all' : Number(v))}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="1">Year 1</TabsTrigger>
+                <TabsTrigger value="2">Year 2</TabsTrigger>
+                <TabsTrigger value="3">Year 3</TabsTrigger>
+                <TabsTrigger value="4">Year 4</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
+          
+          <CourseList courses={filteredCourses} onStatusChange={handleStatusChange} />
+        </div>
 
-          {/* Achievements */}
-          <div className="glass-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display text-lg glow-text">Achievements</h3>
-              <span className="text-sm text-primary font-display">{unlockedAchievements}/{achievements.length}</span>
-            </div>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin pr-2">
-              {achievements.map((achievement, index) => (
-                <AchievementBadge key={achievement.id} achievement={achievement} delay={index * 100} />
-              ))}
-            </div>
+        {/* Achievements */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-foreground">Achievements</h3>
+            <span className="text-sm text-muted-foreground">{unlockedAchievements} of {achievements.length} unlocked</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            {achievements.map((achievement, index) => (
+              <AchievementBadge key={achievement.id} achievement={achievement} delay={index * 50} />
+            ))}
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Footer */}
-      <footer className="mt-8 text-center text-sm text-muted-foreground opacity-0 animate-fade-in" style={{ animationDelay: '1000ms' }}>
+      <footer className="border-t border-border mt-8 py-4 text-center text-sm text-muted-foreground">
         <p>Adventist University of Central Africa • Software Engineering Program</p>
       </footer>
     </div>
