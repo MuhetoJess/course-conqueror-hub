@@ -4,7 +4,6 @@ interface ProgressRingProps {
   progress: number;
   size?: number;
   strokeWidth?: number;
-  className?: string;
   label?: string;
   sublabel?: string;
 }
@@ -12,17 +11,16 @@ interface ProgressRingProps {
 const ProgressRing: React.FC<ProgressRingProps> = ({
   progress,
   size = 120,
-  strokeWidth = 8,
-  className = '',
+  strokeWidth = 10,
   label,
-  sublabel,
+  sublabel
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className={`relative inline-flex items-center justify-center ${className}`}>
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="progress-ring">
         {/* Background circle */}
         <circle
@@ -30,7 +28,7 @@ const ProgressRing: React.FC<ProgressRingProps> = ({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="hsl(var(--secondary))"
+          stroke="hsl(var(--muted))"
           strokeWidth={strokeWidth}
         />
         {/* Progress circle */}
@@ -39,25 +37,16 @@ const ProgressRing: React.FC<ProgressRingProps> = ({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="url(#progressGradient)"
+          stroke="hsl(var(--primary))"
           strokeWidth={strokeWidth}
-          strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          style={{
-            transition: 'stroke-dashoffset 1s ease-out',
-            filter: 'drop-shadow(0 0 6px hsl(var(--primary) / 0.5))',
-          }}
+          strokeLinecap="round"
+          className="transition-all duration-1000 ease-out"
         />
-        <defs>
-          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(var(--primary))" />
-            <stop offset="100%" stopColor="hsl(var(--accent))" />
-          </linearGradient>
-        </defs>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        {label && <span className="text-2xl font-bold font-display gradient-text">{label}</span>}
+        {label && <span className="text-xl font-semibold text-foreground">{label}</span>}
         {sublabel && <span className="text-xs text-muted-foreground">{sublabel}</span>}
       </div>
     </div>
