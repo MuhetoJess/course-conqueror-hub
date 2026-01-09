@@ -1,13 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { GraduationCap, BookOpen, Trophy, Target, TrendingUp, Calendar, Award } from 'lucide-react';
-import { studentStats, courses as initialCourses, achievements, Course } from '@/data/academicData';
+import { GraduationCap, BookOpen, Target, TrendingUp, Calendar, Award, Plus } from 'lucide-react';
+import { studentStats, courses as initialCourses, Course } from '@/data/academicData';
 import ProgressRing from '@/components/ProgressRing';
 import StatsCard from '@/components/StatsCard';
-import AchievementBadge from '@/components/AchievementBadge';
 import CourseList from '@/components/CourseList';
 import GPAChart from '@/components/GPAChart';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+
+const TOTAL_CREDITS_REQUIRED = 120; // Changed from 137 to 120
 
 const Index: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
@@ -19,6 +21,29 @@ const Index: React.FC = () => {
     ));
   };
 
+  const handleGradeChange = (code: string, newGrade: number | undefined) => {
+    setCourses(prev => prev.map(course => 
+      course.code === code ? { ...course, grade: newGrade } : course
+    ));
+  };
+
+  const handleDeleteCourse = (code: string) => {
+    setCourses(prev => prev.filter(c => c.code !== code));
+  };
+
+  const handleAddCourse = () => {
+    const newCourse: Course = {
+      code: `NEW-${Math.floor(Math.random() * 1000)}`,
+      name: "New Course",
+      credits: 3,
+      year: selectedYear === 'all' ? 1 : selectedYear,
+      semester: 1,
+      status: 'pending',
+      type: 'major'
+    };
+    setCourses(prev => [newCourse, ...prev]);
+  };
+
   const stats = useMemo(() => {
     const earnedCredits = courses
       .filter(c => c.status === 'passed')
@@ -26,10 +51,15 @@ const Index: React.FC = () => {
     const ongoingCredits = courses
       .filter(c => c.status === 'ongoing')
       .reduce((sum, c) => sum + c.credits, 0);
-    const remainingCredits = studentStats.totalCredits - earnedCredits;
+    const remainingCredits = TOTAL_CREDITS_REQUIRED - earnedCredits;
     const passedCourses = courses.filter(c => c.status === 'passed').length;
     const ongoingCourses = courses.filter(c => c.status === 'ongoing').length;
-    const pendingCourses = courses.filter(c => c.status === 'pending').length;
+
+    // Calculate dynamic GPA based on current course list
+    const coursesWithGrades = courses.filter(c => c.grade !== undefined && c.status === 'passed');
+    const calculatedGPA = coursesWithGrades.length > 0
+      ? coursesWithGrades.reduce((sum, c) => sum + (c.grade || 0), 0) / coursesWithGrades.length
+      : 0;
 
     return {
       earnedCredits,
@@ -37,16 +67,14 @@ const Index: React.FC = () => {
       remainingCredits,
       passedCourses,
       ongoingCourses,
-      pendingCourses,
-      progressPercent: (earnedCredits / studentStats.totalCredits) * 100
+      overallGPA: calculatedGPA,
+      progressPercent: Math.min((earnedCredits / TOTAL_CREDITS_REQUIRED) * 100, 100)
     };
   }, [courses]);
 
   const filteredCourses = selectedYear === 'all' 
     ? courses 
     : courses.filter(c => c.year === selectedYear);
-
-  const unlockedAchievements = achievements.filter(a => a.unlocked).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,12 +86,8 @@ const Index: React.FC = () => {
               <GraduationCap className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-foreground">
-                Academic Dashboard
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {studentStats.studentName} • {studentStats.regNumber}
-              </p>
+              <h1 className="text-xl font-semibold text-foreground">Course Conqueror Hub</h1>
+              <p className="text-sm text-muted-foreground">{studentStats.studentName} • {studentStats.regNumber}</p>
             </div>
           </div>
           <div className="flex items-center gap-6 text-sm">
@@ -71,38 +95,28 @@ const Index: React.FC = () => {
               <span className="text-muted-foreground">Program:</span>
               <span className="ml-2 font-medium text-foreground">{studentStats.major}</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Year:</span>
-              <span className="ml-2 font-medium text-foreground">{studentStats.currentYear}</span>
-            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           <StatsCard
             title="Overall GPA"
-            value={studentStats.overallGPA.toFixed(2)}
-            subtitle="Out of 20"
+            value={stats.overallGPA.toFixed(2)}
+            subtitle="Calculated from passed"
             icon={TrendingUp}
-          />
-          <StatsCard
-            title="Major GPA"
-            value={studentStats.majorGPA.toFixed(2)}
-            subtitle="Core courses"
-            icon={Target}
           />
           <StatsCard
             title="Credits Earned"
             value={stats.earnedCredits}
-            subtitle={`of ${studentStats.totalCredits} total`}
+            subtitle={`of ${TOTAL_CREDITS_REQUIRED} total`}
             icon={Award}
           />
           <StatsCard
             title="Credits Remaining"
-            value={stats.remainingCredits}
+            value={Math.max(0, stats.remainingCredits)}
             subtitle="to graduate"
             icon={Calendar}
           />
@@ -113,53 +127,30 @@ const Index: React.FC = () => {
             icon={BookOpen}
           />
           <StatsCard
-            title="Achievements"
-            value={`${unlockedAchievements}/${achievements.length}`}
-            subtitle="Unlocked"
-            icon={Trophy}
+            title="Degree Progress"
+            value={`${Math.round(stats.progressPercent)}%`}
+            subtitle="Complete"
+            icon={Target}
           />
         </div>
 
         {/* Progress Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Degree Progress */}
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="text-sm font-medium text-muted-foreground mb-4">Degree Progress</h3>
             <div className="flex items-center gap-6">
-              <ProgressRing
-                progress={stats.progressPercent}
-                size={120}
-                strokeWidth={10}
-                label={`${Math.round(stats.progressPercent)}%`}
-                sublabel="Complete"
-              />
+              <ProgressRing progress={stats.progressPercent} size={120} strokeWidth={10} label={`${Math.round(stats.progressPercent)}%`} />
               <div className="space-y-3 flex-1">
                 <div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-muted-foreground">Completed</span>
                     <span className="font-medium text-success">{stats.earnedCredits} cr</span>
                   </div>
-                  <Progress value={(stats.earnedCredits / studentStats.totalCredits) * 100} className="h-2" />
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">In Progress</span>
-                    <span className="font-medium text-warning">{stats.ongoingCredits} cr</span>
-                  </div>
-                  <Progress value={(stats.ongoingCredits / studentStats.totalCredits) * 100} className="h-2 [&>div]:bg-warning" />
-                </div>
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">Remaining</span>
-                    <span className="font-medium text-muted-foreground">{stats.remainingCredits} cr</span>
-                  </div>
-                  <Progress value={(stats.remainingCredits / studentStats.totalCredits) * 100} className="h-2 [&>div]:bg-muted-foreground" />
+                  <Progress value={stats.progressPercent} className="h-2" />
                 </div>
               </div>
             </div>
           </div>
-
-          {/* GPA Chart */}
           <div className="lg:col-span-2">
             <GPAChart />
           </div>
@@ -170,42 +161,32 @@ const Index: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border-b border-border">
             <div>
               <h2 className="text-lg font-semibold text-foreground">Course Catalog</h2>
-              <p className="text-sm text-muted-foreground">
-                Toggle status to track your progress • {filteredCourses.length} courses
-              </p>
+              <p className="text-sm text-muted-foreground">Update grades and status manually</p>
             </div>
-            <Tabs value={String(selectedYear)} onValueChange={(v) => setSelectedYear(v === 'all' ? 'all' : Number(v))}>
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="1">Year 1</TabsTrigger>
-                <TabsTrigger value="2">Year 2</TabsTrigger>
-                <TabsTrigger value="3">Year 3</TabsTrigger>
-                <TabsTrigger value="4">Year 4</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <div className="flex items-center gap-4">
+              <Tabs value={String(selectedYear)} onValueChange={(v) => setSelectedYear(v === 'all' ? 'all' : Number(v))}>
+                <TabsList>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="1">Y1</TabsTrigger>
+                  <TabsTrigger value="2">Y2</TabsTrigger>
+                  <TabsTrigger value="3">Y3</TabsTrigger>
+                  <TabsTrigger value="4">Y4</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button onClick={handleAddCourse} size="sm" className="gap-2">
+                <Plus className="w-4 h-4" /> Add Course
+              </Button>
+            </div>
           </div>
           
-          <CourseList courses={filteredCourses} onStatusChange={handleStatusChange} />
-        </div>
-
-        {/* Achievements */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-foreground">Achievements</h3>
-            <span className="text-sm text-muted-foreground">{unlockedAchievements} of {achievements.length} unlocked</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-            {achievements.map((achievement, index) => (
-              <AchievementBadge key={achievement.id} achievement={achievement} delay={index * 50} />
-            ))}
-          </div>
+          <CourseList 
+            courses={filteredCourses} 
+            onStatusChange={handleStatusChange} 
+            onGradeChange={handleGradeChange}
+            onDeleteCourse={handleDeleteCourse}
+          />
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border mt-8 py-4 text-center text-sm text-muted-foreground">
-        <p>Adventist University of Central Africa • Software Engineering Program</p>
-      </footer>
     </div>
   );
 };
