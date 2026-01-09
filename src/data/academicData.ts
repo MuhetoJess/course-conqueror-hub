@@ -30,7 +30,7 @@ export const studentStats: AcademicStats = {
   faculty: "Information Technology",
   overallGPA: 15.07,
   majorGPA: 15.58,
-  totalCredits: 137,
+  totalCredits: 120,
   earnedCredits: 70,
   transferCredits: 5,
   currentYear: 4,
